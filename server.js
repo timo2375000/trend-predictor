@@ -2,14 +2,21 @@ const express = require('express');
 const axios = require('axios');
 const dotenv = require('dotenv');
 const cors = require('cors');
+const path = require('path');
 
 dotenv.config();
 const app = express();
 
 app.use(cors());
 app.use(express.json());
+app.use(express.static('public'));  // 추가된 부분
 
-// 네이버 데이터랩 API 엔드포인트
+// 루트 경로 처리 추가
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// 기존 API 엔드포인트는 그대로 유지
 app.post('/api/trend-analysis', async (req, res) => {
   const { keyword } = req.body;
   
