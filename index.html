@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>트렌드 예측 분석기</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { padding: 20px; font-family: Arial, sans-serif; background-color: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background-color: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        .input-group { margin-bottom: 20px; display: flex; gap: 10px; }
+        input { padding: 10px; width: 200px; border: 1px solid #ddd; border-radius: 5px; }
+        button { padding: 10px 20px; background-color: #0080ff; color: white; border: none; cursor: pointer; border-radius: 5px; }
+        button:hover { background-color: #0066cc; }
+        .chart-container { margin-top: 20px; background-color: white; padding: 20px; border-radius: 5px; }
+        .prediction-info { margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 5px; }
+        .prediction-label { font-weight: bold; color: #0080ff; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>트렌드 예측 분석기</h1>
+        <div class="input-group">
+            <input type="text" id="keyword" placeholder="키워드 입력 (예: 다이어트, 여행)">
+            <button onclick="analyzeTrend()">트렌드 분석</button>
+        </div>
+        <div class="chart-container">
+            <canvas id="trendChart"></canvas>
+        </div>
+        <div class="prediction-info" id="predictionInfo"></div>
+    </div>
+
+    <script>
+        let chart = null;
+
+        async function analyzeTrend() {
+            const keyword = document.getElementById('keyword').value;
+            if (!keyword) {
+                alert('키워드를 입력해주세요');
+                return;
+            }
+
+            try {
+                const response = await fetch('http://localhost:3000/api/trend-analysis', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ keyword })
+                });
+                const data = await response.json();
+                visualizeData(data);
+            } catch (error) {
+                alert('에러가 발생했습니다: ' + error.message);
+            }
+        }
+
+        function visualizeData(data) {
+            const allData = [...data.historical, ...data.predicted];
+            const labels = allData.map(d => d.period);
+            const values = allData.map(d => d.ratio);
+
+            // 트렌드 분석
+            const lastValue = data.historical[data.historical.length - 1].ratio;
+            const predictedValue = data.predicted[data.predicted.length - 1].ratio;
+            const growthRate = ((predictedValue - lastValue) / lastValue * 100).toFixed(1);
+
+            // 예측 정보 표시
+            document.getElementById('predictionInfo').innerHTML = `
+                <p class="prediction-label">예측 분석 결과:</p>
+                <p>현재 검색량: ${lastValue.toFixed(1)}</p>
+                <p>2개월 후 예상 검색량: ${predictedValue.toFixed(1)}</p>
+                <p>예상 성장률: ${growthRate}%</p>
+                <p>트렌드: ${growthRate > 0 ? '상승 예상' : '하락 예상'}</p>
+            `;
+
+            if (chart) {
+                chart.destroy();
+            }
+
+            const ctx = document.getElementById('trendChart').getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: '실제 데이터',
+                            data: data.historical.map(d => d.ratio),
+                            borderColor: '#0080ff',
+                            backgroundColor: 'rgba(0, 128, 255, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        },
+                        {
+                            label: '예측 데이터',
+                            data: [...Array(data.historical.length - 1).fill(null), 
+                                  data.historical[data.historical.length - 1].ratio,
+                                  ...data.predicted.map(d => d.ratio)],
+                            borderColor: '#ff4040',
+                            borderDash: [5, 5],
+                            fill: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `"${data.keyword}" 트렌드 분석 및 예측`,
+                            font: { size: 16 }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '검색량 상대치'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
